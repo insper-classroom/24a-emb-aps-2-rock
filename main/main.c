@@ -66,9 +66,34 @@ void button_task(void *p) {
         if (xQueueReceive(xQueueBTN, &btnPress, portMAX_DELAY)) {
             if (btnPress.isPowerButton) {
                 ledState = !ledState; // Alterna o estado do LED
-                // Aqui você poderia chamar uma função ou enviar um sinal para outra tarefa, se necessário
             } else {
-                // Lógica para outros botões, se necessário
+                // Lógica para os botões de cores
+                switch(btnPress.btnId) {
+                    case BTN_COLOR_1_PIN:
+                        // Ação para o botão de cor 1
+                        printf("Botão de cor 1 pressionado!\n");
+                        break;
+                    case BTN_COLOR_2_PIN:
+                        // Ação para o botão de cor 2
+                        printf("Botão de cor 2 pressionado!\n");
+                        break;
+                    case BTN_COLOR_3_PIN:
+                        // Ação para o botão de cor 3
+                        printf("Botão de cor 3 pressionado!\n");
+                        break;
+                    case BTN_COLOR_4_PIN:
+                        // Ação para o botão de cor 4
+                        printf("Botão de cor 4 pressionado!\n");
+                        break;
+                    case BTN_COLOR_5_PIN:
+                        // Ação para o botão de cor 5
+                        printf("Botão de cor 5 pressionado!\n");
+                        break;
+                    default:
+                        // Se o botão pressionado não for reconhecido
+                        printf("Botão desconhecido com ID %d pressionado.\n", btnPress.btnId);
+                        break;
+                }
             }
         }
     }
