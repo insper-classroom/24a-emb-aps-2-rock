@@ -12,7 +12,6 @@
 #include "hc06.h"
 #include "hardware/gpio.h"
 
-// Definições dos pinos para o projeto
 #define LED_PIN 10
 #define POWER_BUTTON_PIN 11
 #define BTN_COLOR_1_PIN 12
@@ -23,31 +22,28 @@
 #define JOYSTICK_X_ADC_CHANNEL 0
 #define JOYSTICK_Y_ADC_CHANNEL 1
 
-// Filas
 QueueHandle_t xQueueBTN;
 QueueHandle_t xQueueADC;
 
-// Struct para dados do botão
+volatile bool ledState = false;
+
 typedef struct {
     int btnId;
     bool isPowerButton;
 } ButtonPress;
 
-// Struct para dados do ADC
 typedef struct {
     int axis; // 0 para X, 1 para Y
     int val;  // Valor filtrado da leitura
 } adc_t;
 
-// Protótipos das funções
 void button_callback(uint gpio, uint32_t events);
 void adc_task(void *p);
 void uart_task(void *p);
 void button_task(void *p);
 void led_task(void *p);
 void setup_buttons(void);
-
-// Implementações das funções
+void hc06_task(void *p);
 
 void button_callback(uint gpio, uint32_t events) {
     ButtonPress btnPress;
@@ -55,6 +51,21 @@ void button_callback(uint gpio, uint32_t events) {
     btnPress.isPowerButton = (gpio == POWER_BUTTON_PIN);
     xQueueSendFromISR(xQueueBTN, &btnPress, NULL);
 }
+
+void button_task(void *p) {
+    ButtonPress btnPress;
+    while (true) {
+        if (xQueueReceive(xQueueBTN, &btnPress, portMAX_DELAY)) {
+            if (btnPress.isPowerButton) {
+                ledState = !ledState; // Alterna o estado do LED
+                // Aqui você poderia chamar uma função ou enviar um sinal para outra tarefa, se necessário
+            } else {
+                // Lógica para outros botões, se necessário
+            }
+        }
+    }
+}
+
 
 void adc_task(void *p) {
     uint axis = (uint)p; // 0 para X, 1 para Y
@@ -90,17 +101,15 @@ void uart_task(void *p) {
     }
 }
 
-void button_task(void *p) {
-    ButtonPress btnPress;
-    while (true) {
-        if (xQueueReceive(xQueueBTN, &btnPress, portMAX_DELAY)) {
-            // Lógica para tratar pressionamento do botão aqui
-        }
-    }
-}
+
 
 void led_task(void *p) {
-    // ... Implementação da tarefa do LED
+    gpio_init(LED_PIN);
+    gpio_set_dir(LED_PIN, GPIO_OUT);
+    while (true) {
+        gpio_put(LED_PIN, ledState ? 1 : 0); // Acende ou apaga o LED baseado no estado
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
 }
 
 void setup_buttons() {
@@ -133,14 +142,14 @@ void hc06_task(void *p) {
 // Função principal
 int main() {
     stdio_init_all();
+    printf("Start RTOS\n");
 
-    // Inicializações
     xQueueBTN = xQueueCreate(10, sizeof(ButtonPress));
     xQueueADC = xQueueCreate(10, sizeof(adc_t));
+
     adc_init();
     setup_buttons();
 
-    // Criação das tarefas
     xTaskCreate(adc_task, "ADC_Task X", 4096, (void*)0, 1, NULL); // Eixo X
     xTaskCreate(adc_task, "ADC_Task Y", 4096, (void*)1, 1, NULL); // Eixo Y
     xTaskCreate(uart_task, "UART_Task", 4096, NULL, 1, NULL);
@@ -148,10 +157,8 @@ int main() {
     xTaskCreate(led_task, "LED Task", 256, NULL, 1, NULL);
     xTaskCreate(hc06_task, "HC06 Task", 4096, NULL, 1, NULL);
 
-    // Iniciar o scheduler do FreeRTOS
     vTaskStartScheduler();
 
-    // Loop infinito (não deve chegar aqui)
     while (true) { }
     return 0;
 }
