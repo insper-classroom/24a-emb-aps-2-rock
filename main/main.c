@@ -1,5 +1,3 @@
-
-
 #include <string.h>
 #include <stdio.h>
 #include "hc06.h"
