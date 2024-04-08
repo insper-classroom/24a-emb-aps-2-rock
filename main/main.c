@@ -46,10 +46,20 @@ void setup_buttons(void);
 void hc06_task(void *p);
 
 void button_callback(uint gpio, uint32_t events) {
-    ButtonPress btnPress;
-    btnPress.btnId = gpio;
-    btnPress.isPowerButton = (gpio == POWER_BUTTON_PIN);
-    xQueueSendFromISR(xQueueBTN, &btnPress, NULL);
+    static TickType_t lastDebounceTime = 0;
+    const TickType_t debounceDelay = pdMS_TO_TICKS(50); // 50 ms debounce time
+    
+    TickType_t currentTime = xTaskGetTickCount();
+    if (currentTime - lastDebounceTime > debounceDelay) {
+        // Suficiente tempo desde a última interrupção passou, podemos considerar isso como um evento válido de botão
+        ButtonPress btnPress;
+        btnPress.btnId = gpio;
+        btnPress.isPowerButton = (gpio == POWER_BUTTON_PIN);
+        xQueueSendFromISR(xQueueBTN, &btnPress, NULL);
+        
+        // Atualizar o último tempo de debouncing
+        lastDebounceTime = currentTime;
+    }
 }
 
 void button_task(void *p) {
