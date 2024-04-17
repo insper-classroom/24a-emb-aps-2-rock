@@ -1,12 +1,30 @@
 import serial
 from pynput.keyboard import Controller, Key
+import uinput
 
 ser = serial.Serial('/dev/ttyACM0', 115200)
 keyboard = Controller()
 
+device = uinput.Device([
+    uinput.BTN_LEFT,
+    uinput.BTN_RIGHT,
+    uinput.REL_X,
+    uinput.REL_Y,
+])
+def parse_mouse_data(data):
+    #corta os 5 primeiros bytes e só considera os ultimos
+    #data = data[5:]
+    #print(f"Data Joy: {data}")
+    axis = data[0]  # 0 for X, 1 for Y
+    value = int.from_bytes(data[1:3], byteorder='little', signed=True)
+    print(f"Received data: {data}")
+    print(f"axis: {axis}, value: {value}")
+    return axis, value
+    
 def parse_button_states(data):
     button_states = []
     inside_brackets = False
+    #print(data)
     for byte in data:
         if byte == 91:  # '['
             inside_brackets = True
@@ -16,6 +34,12 @@ def parse_button_states(data):
         elif inside_brackets:
             button_states.append(byte)
     return button_states
+
+def move_mouse(axis, value):
+    if axis == 0:    # X-axis
+        device.emit(uinput.REL_X, value)
+    elif axis == 1:  # Y-axis
+        device.emit(uinput.REL_Y, value)
 
 def press_key(button_index):
     if button_index == 6:  # Button 1 corresponds to the 'A' key
@@ -42,10 +66,29 @@ def release_key(button_index):
 try:
     while True:
         # Lê os dados da porta serial
+        #data = ser.read()
+        print('Waiting for sync package...')
+        while True:
+            data = ser.read(1)
+            if data == b'\xff':
+                break
+        data_joy = ser.read_until(b'B')
+        data_mouse = b''
+        for i in data_joy:
+            # print(i)
+            if i != 66:
+                print(i)
+                data_mouse += i.to_bytes(1, byteorder='big')
+        print(f"Data Mouse: {data_mouse}")
         data = ser.read_until(b']')
+        print(f"Data: {data}")
+        axis, value = parse_mouse_data( b'\x01\x00\x01\x00\x00\xff')
+        move_mouse(axis, value)
+
+        #print(f"Data Joy: {data_joy}")
         if data:
             button_data = parse_button_states(data)
-            print(f"Button States: {button_data}")
+            #print(f"Button States: {button_data}")
             
             # Verifica se algum botão está sendo pressionado
             if button_data:
