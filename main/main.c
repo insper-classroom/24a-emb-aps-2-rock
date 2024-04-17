@@ -22,10 +22,40 @@ const int UART_RX_PIN = 1;
 QueueHandle_t xQueueBTN;
 QueueHandle_t xQueueAdc;
 
+volatile uint8_t button_states[5] = {1, 1, 1, 1, 1}; // 1 indica botão não pressionado
+
+
 typedef struct adc {
     int axis;
     int val;
 } adc_t;
+
+double absoluto(double x) {
+    if (x < 0) {
+        return -x;
+    }
+    return x;
+}
+
+void write_package(adc_t data) {
+    int val = data.val;
+    
+    int valor_pot = val;
+
+    uint8_t data_bt = 0;
+    for (int i = 0; i < 5; i++) {
+        if (button_states[i] == 0) { // Se botão pressionado
+            data_bt |= (1 << i);
+        }
+    }
+
+    uart_putc_raw(uart0, 255);
+    uart_putc_raw(uart0, data.axis);
+    uart_putc_raw(uart0, valor_pot);
+    uart_putc_raw(uart0, data_bt);
+    //printf("Data: %d %d %d\n", data.axis, valor_pot, status_botoes);
+}
+
 
 void x_task(void *p) {
     adc_init();
@@ -36,16 +66,21 @@ void x_task(void *p) {
     while (1) {
         adc_select_input(1);
 
-        A[0]=A[1];
-        A[1]=A[2];
-        A[2]=A[3];
-        A[3]=A[4];
-        A[4]=adc_read();
+        //A[0]=A[1];
+        //A[1]=A[2];
+        //A[2]=A[3];
+        //A[3]=A[4];
+        //A[4]=adc_read();
 
         str.axis=0;
-        str.val=(((A[0]+A[1]+A[2]+A[3]+A[4])/5) - 2047)/10;
-        if (abs(str.val)<=150) str.val=0;
-        xQueueSend(xQueueAdc, &str, 1);
+        //str.val=((A[0]+A[1]+A[2]+A[3]+A[4])/5);
+        /*
+        if (absoluto(str.val)<=150){
+            str.val=0;
+        }*/
+        str.val = (100*adc_read())/4095;
+        write_package(str); 
+        //xQueueSend(xQueueAdc, &str, 1);
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
@@ -59,22 +94,26 @@ void y_task(void *p) {
     while (1) {
         adc_select_input(0);
 
-        A[0]=A[1];
-        A[1]=A[2];
-        A[2]=A[3];
-        A[3]=A[4];
-        A[4]=adc_read();
+        //A[0]=A[1];
+        //A[1]=A[2];
+        //A[2]=A[3];
+        //A[3]=A[4];
+        //A[4]=adc_read();
 
         str.axis=1;
-        str.val=(((A[0]+A[1]+A[2]+A[3]+A[4])/5) - 2047)/10;
-        if (abs(str.val)<=150) str.val=0;
-        xQueueSend(xQueueAdc, &str, 1);
+        //str.val=( (A[0]+A[1]+A[2]+A[3]+A[4])/5);
+        /*
+        if (absoluto(str.val)<=150){
+            str.val=0;
+        }*/
+        str.val = (100*adc_read())/4095;
+        write_package(str); 
+        //xQueueSend(xQueueAdc, &str, 1);
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
 // Estados iniciais dos botões
-volatile uint8_t button_states[5] = {1, 1, 1, 1, 1}; // 1 indica botão não pressionado
 
 typedef struct {
     int btnId;
@@ -88,19 +127,6 @@ void update_button_states() {
     button_states[4] = gpio_get(BTN_O) == 0 ? 0 : 1;
 }
 
-void send_button_states() {
-    // Envia os estados dos botões como um único byte para o UART
-
-    uint8_t data = 0;
-    for (int i = 0; i < 5; i++) {
-        if (button_states[i] == 0) { // Se botão pressionado
-            data |= (1 << i);
-        }
-    }
-    uart_putc_raw(uart0, 0xFF);
-    uart_putc_raw(uart0, data);
-    uart_putc_raw(uart0, -1);
-}
 
 void button_callback(uint gpio, uint32_t events) {
     static TickType_t lastDebounceTime = 0;
@@ -126,52 +152,48 @@ void button_task(void *p) {
         if (xTaskGetTickCount() - lastSendTime >= pdMS_TO_TICKS(100)) {
             // Envie os estados dos botões a cada 100ms
             update_button_states(); // Atualiza os estados dos botões
-            printf("Button States: [");
+            //printf("[");
             for (int i = 0; i < 5; i++) {
-                printf("%d ", button_states[i]);
+                //printf("%d ", button_states[i]);
             }
-            printf("]\n");
-            send_button_states(); // Envia os estados dos botões para UART
+            //printf("]\n");
             lastSendTime = xTaskGetTickCount();
         }
 
         // Verifique se houve pressão de botão
         if (xQueueReceive(xQueueBTN, &btnPress, 0)) {
             update_button_states(); // Atualiza os estados dos botões
-            printf("Button States: [");
+            //printf("Button States: [");
             for (int i = 0; i < 5; i++) {
-                printf("%d ", button_states[i]);
+                //printf("%d ", button_states[i]);
             }
-            printf("]\n");
-            send_button_states(); // Envia os estados dos botões para UART
+            //printf("]\n");
         }
-
         vTaskDelay(pdMS_TO_TICKS(10)); // Pequena pausa para liberar o processador
     }
 }
-void write_package(adc_t data) {
-    int val = data.val;
-    int msb = val >> 8;
-    int lsb = val & 0xFF ;
 
-    uart_putc_raw(uart0, data.axis);
-    uart_putc_raw(uart0, lsb);
-    uart_putc_raw(uart0, msb);
-    uart_putc_raw(uart0, -1);
-}
+
+
+
 
 void uart_task(void *p) {
-    adc_t data;
+    adc_t data_joy;
 
-    while (1) {
-        if (xQueueReceive(xQueueAdc, &data, 1)) {
-            printf("Data: %d %d\n", data);
-            write_package(data); 
-            vTaskDelay(pdMS_TO_TICKS(100));
+    
+
+    while (1){
+        if (xQueueReceive(xQueueAdc, &data_joy, 1)) {
+                    // printf("Data: %d %d\n", data);
+                    //write_package(data_joy); 
+                    vTaskDelay(pdMS_TO_TICKS(1));
         } else ;
-        
     }
+    
+    
+        
 }
+
 
 
 int main() {
@@ -204,7 +226,7 @@ int main() {
     gpio_pull_up(BTN_O);
 
     xQueueBTN = xQueueCreate(10, sizeof(ButtonPress));
-    xQueueAdc = xQueueCreate(32, sizeof(adc_t));
+    xQueueAdc = xQueueCreate(2, sizeof(adc_t));
 
 
     // Configuração de interrupção para os botões
@@ -214,10 +236,10 @@ int main() {
     gpio_set_irq_enabled_with_callback(BTN_Y, GPIO_IRQ_EDGE_FALL, true, &button_callback);
     gpio_set_irq_enabled_with_callback(BTN_O, GPIO_IRQ_EDGE_FALL, true, &button_callback);
 
-    xTaskCreate(uart_task, "UART_Task", 4096, NULL, 1, NULL);
-    xTaskCreate(button_task, "Button Task", 256, NULL, 1, NULL);
-    xTaskCreate(x_task, "X Task", 256, NULL, 1, NULL);
-    xTaskCreate(y_task, "Y Task", 256, NULL, 1, NULL);
+    xTaskCreate(uart_task, "uart_task", 4096, NULL, 1, NULL);
+    xTaskCreate(button_task, "Button_Task", 256, NULL, 1, NULL);
+    xTaskCreate(x_task, "X_task", 256, NULL, 1, NULL);
+    xTaskCreate(y_task, "Y_task", 256, NULL, 1, NULL);
 
     vTaskStartScheduler();
 

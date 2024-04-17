@@ -1,6 +1,8 @@
 import serial
 from pynput.keyboard import Controller, Key
 import uinput
+import sys
+import time
 
 ser = serial.Serial('/dev/ttyACM0', 115200)
 keyboard = Controller()
@@ -10,100 +12,156 @@ device = uinput.Device([
     uinput.BTN_RIGHT,
     uinput.REL_X,
     uinput.REL_Y,
+    uinput.KEY_A,
+    uinput.KEY_S,
+    uinput.KEY_J,
+    uinput.KEY_K,
+    uinput.KEY_L,
 ])
-def parse_mouse_data(data):
-    #corta os 5 primeiros bytes e só considera os ultimos
-    #data = data[5:]
-    #print(f"Data Joy: {data}")
-    axis = data[0]  # 0 for X, 1 for Y
-    value = int.from_bytes(data[1:3], byteorder='little', signed=True)
-    print(f"Received data: {data}")
-    print(f"axis: {axis}, value: {value}")
-    return axis, value
-    
-def parse_button_states(data):
-    button_states = []
-    inside_brackets = False
-    #print(data)
-    for byte in data:
-        if byte == 91:  # '['
-            inside_brackets = True
-        elif byte == 93:  # ']'
-            inside_brackets = False
-            break
-        elif inside_brackets:
-            button_states.append(byte)
-    return button_states
+
+
 
 def move_mouse(axis, value):
     if axis == 0:    # X-axis
+        if (value > 40) and (value <60):
+            value = 0
+        else:
+            if value < 50:
+                value = -1* (50 - value)
+            else:
+                value = value - 50
         device.emit(uinput.REL_X, value)
     elif axis == 1:  # Y-axis
+        if (value > 40) and (value <60):
+                value = 0
+        else:
+            if value < 50:
+                value = -1* (50 - value)
+            else:
+                value = value - 50
         device.emit(uinput.REL_Y, value)
 
+botao_letra = {
+    8: 'a',   # Verde
+    16: 's',  # Vermelho
+    2: 'j',   # Amarelo
+    1: 'k',   # Azul
+    4: 'l'    # Laranja
+}
+
+cases_press = {
+            8: {'a'},
+            16: {'s'},
+            2: {'j'},
+            1: {'k'},
+            4: {'l'},
+            24: {'a', 's'},
+            10: {'a', 'j'},
+            9: {'a', 'k'},
+            12: {'a', 'l'},
+            18: {'s', 'j'},
+            17: {'s', 'k'},
+            20: {'s', 'l'},
+            3: {'j', 'k'},
+            6: {'j', 'l'},
+            5: {'k', 'l'},
+            30: {'a', 's', 'j'},
+            28: {'a', 's', 'k'},
+            22: {'a', 'j', 'k'},
+            14: {'a', 'j', 'l'},
+            13: {'a', 'k', 'l'},
+            7: {'s', 'j', 'k'},
+            11: {'s', 'j', 'l'},
+            19: {'s', 'k', 'l'},
+            15: {'j', 'k', 'l'},
+            31: {'a', 's', 'j', 'k'},
+            29: {'a', 's', 'j', 'l'},
+            27: {'a', 's', 'k', 'l'},
+            23: {'a', 'j', 'k', 'l'},
+            26: {'s', 'j', 'k', 'l'},
+            25: {'a', 's', 'j', 'k', 'l'},
+        }
+cases_release = {
+            8: {'s','j','k','l'},
+            16: {'a','j','k','l'},
+            2: {'a','s','k','l'},
+            1: {'a','s','j','l'},
+            4: {'a','s','j','k'},
+            24: {'j','k','l'},
+            10: {'s','k','l'},
+            9: {'s','j','l'},
+            12: {'s','j','k'},
+            18: {'a','k','l'},
+            17: {'a','j','l'},
+            20: {'a','j','k'},
+            3: {'a','s','l'},
+            6: {'a','s','j'},
+            5: {'a','s','k'},
+            30: {'s'},
+            28: {'j'},
+            22: {'k'},
+            14: {'l'},
+            13: {'a'},
+            7: {'s','j','k','l'},
+            11: {'a','j','k','l'},
+            19: {'a','s','k','l'},
+            15: {'a','s','j','l'},
+            31: set(),  # Não há necessidade de liberar nenhuma tecla
+            29: set(),  # Não há necessidade de liberar nenhuma tecla
+            27: set(),  # Não há necessidade de liberar nenhuma tecla
+            23: set(),  # Não há necessidade de liberar nenhuma tecla
+            26: set(),  # Não há necessidade de liberar nenhuma tecla
+            25: set(),  # Não há necessidade de liberar nenhuma tecla
+        }
+
+def levantar_tecla(button_index):
+    if button_index in cases_release:
+        for key in cases_release[button_index]:
+                keyboard.release(key)    
+    else:
+        pass
 def press_key(button_index):
-    if button_index == 6:  # Button 1 corresponds to the 'A' key
-        keyboard.press('a')
-    elif button_index == 8:  # Button 2 corresponds to the 'S' key
-        keyboard.press('s')
-    elif button_index == 2:  # Button 3 corresponds to the 'D' key
-        keyboard.press('j')
-    elif button_index == 0:  # Button 4 corresponds to the 'F' key
-        keyboard.press('k')
-    elif button_index == 4:  # Button 5 corresponds to the 'G' key
-        keyboard.press('l')
-def release_key(button_index):
-    if button_index == 6:  # Button 1 corresponds to the 'A' key
-        keyboard.release('a')
-    elif button_index == 8:  # Button 2 corresponds to the 'S' key
-        keyboard.release('s')
-    elif button_index == 2:  # Button 3 corresponds to the 'D' key
-        keyboard.release('j')
-    elif button_index == 0:  # Button 4 corresponds to the 'F' key
-        keyboard.release('k')
-    elif button_index == 4:  # Button 5 corresponds to the 'G' key
-        keyboard.release('l')
+    if button_index in cases_press: 
+        for key in cases_press[button_index]:
+            keyboard.press(key)
+        levantar_tecla(button_index)
+    else:
+        pass
+
+
+botao_anterior = 0
 try:
     while True:
         # Lê os dados da porta serial
         #data = ser.read()
         print('Waiting for sync package...')
-        while True:
+        i = 0
+        while (i==0):
             data = ser.read(1)
             if data == b'\xff':
-                break
-        data_joy = ser.read_until(b'B')
-        data_mouse = b''
-        for i in data_joy:
-            # print(i)
-            if i != 66:
-                print(i)
-                data_mouse += i.to_bytes(1, byteorder='big')
-        print(f"Data Mouse: {data_mouse}")
-        data = ser.read_until(b']')
-        print(f"Data: {data}")
-        axis, value = parse_mouse_data( b'\x01\x00\x01\x00\x00\xff')
-        move_mouse(axis, value)
+                i = 1
 
-        #print(f"Data Joy: {data_joy}")
-        if data:
-            button_data = parse_button_states(data)
-            #print(f"Button States: {button_data}")
-            
-            # Verifica se algum botão está sendo pressionado
-            if button_data:
-                for index, button in enumerate(button_data):
-                    if (button != 32) and (button != 49):  # Ignora o valor 32 (espaço)
-                        press_key(index)
-                    if  (button == 49):
-                        release_key(index)
-            else:
-                # Se nenhum botão está sendo pressionado, libera todas as teclas
-                keyboard.release('a')
-                keyboard.release('s')
-                keyboard.release('d')
-                keyboard.release('f')
-                keyboard.release('g')
+        print(int.from_bytes(data, byteorder=sys.byteorder))
+        data = ser.read(1)
+        axis = int.from_bytes(data, byteorder=sys.byteorder)
+        print("Axis: ", axis)
+        data = ser.read(1)
+        valor_mouse = int.from_bytes(data, byteorder=sys.byteorder)
+        print("Valor Mouse: ", valor_mouse)
+        data = ser.read(1)
+        data_button = int.from_bytes(data, byteorder=sys.byteorder)
+        print("Button: ", data_button)
+        data = ser.read(1)
+        print(int.from_bytes(data, byteorder=sys.byteorder))
+        print("\n\n")
+        move_mouse(axis, valor_mouse)
+
+        if data_button:
+            #passando data_bubtton pra binario
+            if data_button != botao_anterior:
+                levantar_tecla(botao_anterior)
+                botao_anterior = data_button
+            press_key(data_button)
 
 except KeyboardInterrupt:
     print("Program terminated by user")
