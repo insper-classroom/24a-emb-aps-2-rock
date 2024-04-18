@@ -12,7 +12,7 @@
 
 const int BTN_PIN_R = 19;
 const int BTN_G = 16;
-const int BTN_B = 21;
+const int BTN_B = 15;
 const int BTN_Y = 20;
 const int BTN_O = 22;
 
@@ -36,6 +36,18 @@ double absoluto(double x) {
     }
     return x;
 }
+
+// void hc06_task(void *p) {
+//     uart_init(HC06_UART_ID, HC06_BAUD_RATE);
+//     gpio_set_function(HC06_TX_PIN, GPIO_FUNC_UART);
+//     gpio_set_function(HC06_RX_PIN, GPIO_FUNC_UART);
+//     hc06_init("aps2_legal", "1234");
+
+//     while (true) {
+//         uart_puts(HC06_UART_ID, "OLAAA ");
+//         vTaskDelay(pdMS_TO_TICKS(100));
+//     }
+// }
 
 void write_package(adc_t data) {
     int val = data.val;
@@ -78,6 +90,7 @@ void x_task(void *p) {
         if (absoluto(str.val)<=150){
             str.val=0;
         }*/
+        printf("NO X ADC TA : %d\n", adc_read());
         str.val = (100*adc_read())/4095;
         write_package(str); 
         //xQueueSend(xQueueAdc, &str, 1);
@@ -87,12 +100,12 @@ void x_task(void *p) {
 
 void y_task(void *p) {
     adc_init();
-    adc_gpio_init(26);
+    adc_gpio_init(28);
     
     adc_t str;
     int A[6] = {0};
     while (1) {
-        adc_select_input(0);
+        adc_select_input(2);
 
         //A[0]=A[1];
         //A[1]=A[2];
@@ -101,11 +114,7 @@ void y_task(void *p) {
         //A[4]=adc_read();
 
         str.axis=1;
-        //str.val=( (A[0]+A[1]+A[2]+A[3]+A[4])/5);
-        /*
-        if (absoluto(str.val)<=150){
-            str.val=0;
-        }*/
+        printf("NO Y ADC TA : %d\n", adc_read());
         str.val = (100*adc_read())/4095;
         write_package(str); 
         //xQueueSend(xQueueAdc, &str, 1);

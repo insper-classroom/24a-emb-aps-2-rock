@@ -42,11 +42,11 @@ def move_mouse(axis, value):
         device.emit(uinput.REL_Y, value)
 
 botao_letra = {
-    8: 'a',   # Verde
-    16: 's',  # Vermelho
-    2: 'j',   # Amarelo
+    2: 'a',   # Verde
+    4: 's',  # Vermelho
+    8: 'j',   # Amarelo
     1: 'k',   # Azul
-    4: 'l'    # Laranja
+    16: 'l'    # Laranja
 }
 
 
