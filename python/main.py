@@ -4,7 +4,7 @@ import uinput
 import sys
 import time
 
-ser = serial.Serial('/dev/ttyACM0', 115200)
+ser = serial.Serial('/dev/rfcomm0', 9600, timeout=10)
 keyboard = Controller()
 
 device = uinput.Device([
@@ -21,25 +21,23 @@ device = uinput.Device([
 
 
 
-def move_mouse(axis, value):
-    if axis == 0:    # X-axis
-        if (value > 40) and (value <60):
-            value = 0
+def move_mouse(x, y):
+    if (x > 40) and (x <60):
+            x = 0
+    else:
+        if x < 50:
+            x = -1* (50 - x)
         else:
-            if value < 50:
-                value = -1* (50 - value)
-            else:
-                value = value - 50
-        device.emit(uinput.REL_X, value)
-    elif axis == 1:  # Y-axis
-        if (value > 40) and (value <60):
-                value = 0
+            x = x - 50
+    device.emit(uinput.REL_X, x)
+    if (y > 40) and (y <60):
+            y = 0
+    else:
+        if y < 50:
+            y = -1* (50 - y)
         else:
-            if value < 50:
-                value = -1* (50 - value)
-            else:
-                value = value - 50
-        device.emit(uinput.REL_Y, value)
+            y = y - 50
+    device.emit(uinput.REL_Y, y)
 
 botao_letra = {
     2: 'a',   # Verde
@@ -94,23 +92,21 @@ try:
         i = 0
         while (i==0):
             data = ser.read(1)
+            print(data)
             if data == b'\xff':
                 i = 1
 
         print(int.from_bytes(data, byteorder=sys.byteorder))
         data = ser.read(1)
-        axis = int.from_bytes(data, byteorder=sys.byteorder)
-        print("Axis: ", axis)
+        data_x = int.from_bytes(data, byteorder=sys.byteorder)
+        print("Valor de X: ", data_x)
         data = ser.read(1)
-        valor_mouse = int.from_bytes(data, byteorder=sys.byteorder)
-        print("Valor Mouse: ", valor_mouse)
+        data_y = int.from_bytes(data, byteorder=sys.byteorder)
+        print("Valor de Y: ", data_y)
         data = ser.read(1)
         data_button = int.from_bytes(data, byteorder=sys.byteorder)
         print("Button: ", data_button)
-        data = ser.read(1)
-        print(int.from_bytes(data, byteorder=sys.byteorder))
-        print("\n\n")
-        move_mouse(axis, valor_mouse)
+        move_mouse(data_x, data_y)
 
         if data_button is not None:
             # transofrmando data_button em um binario que necessarioamente tem que ter 5 bits
