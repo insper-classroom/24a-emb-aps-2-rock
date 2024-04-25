@@ -20,19 +20,33 @@ const int BTN_O = 22;
 const int UART_TX_PIN = 0;
 const int UART_RX_PIN = 1;
 
+#define PWM_0_GP 10
+#define PWM_1_GP 11
+#define PWM_2_GP 12
+
+
+void wheel(uint WheelPos, uint8_t *r, uint8_t *g, uint8_t *b);
+
 
 QueueHandle_t xQueueBTN;
 QueueHandle_t xQueueAdc;
+QueueHandle_t xQueueRGB;
+
 
 volatile uint8_t button_states[5] = {1, 1, 1, 1, 1}; // 1 indica botão não pressionado
 
+typedef struct rgb {
+    int r;
+    int g;
+    int b;
+} rgb_t;
 
 typedef struct adc {
     int val_x;
     int val_y;
 } adc_t;
 
-adc_t data_joy;
+volatile adc_t data_joy;
 
 
 double absoluto(double x) {
@@ -40,6 +54,39 @@ double absoluto(double x) {
         return -x;
     }
     return x;
+}
+
+void init_pwm(int pwm_pin_gp, uint resolution, uint *slice_num, uint *chan_num) {
+    gpio_set_function(pwm_pin_gp, GPIO_FUNC_PWM);
+    uint slice = pwm_gpio_to_slice_num(pwm_pin_gp);
+    uint chan = pwm_gpio_to_channel(pwm_pin_gp);
+    pwm_set_clkdiv(slice, 125); // pwm clock should now be running at 1MHz
+    pwm_set_wrap(slice, resolution);
+    pwm_set_chan_level(slice, PWM_CHAN_A, 0);
+    pwm_set_enabled(slice, true);
+
+    *slice_num = slice;
+    *chan_num = chan;
+}
+
+void rgb_task(void *p) {
+    int pwm_r_slice, pwm_r_chan;
+    int pwm_g_slice, pwm_g_chan;
+    int pwm_b_slice, pwm_b_chan;
+    init_pwm(PWM_0_GP, 256, &pwm_r_slice, &pwm_r_chan); // RGB RED NO PIN 10
+    init_pwm(PWM_1_GP, 256, &pwm_g_slice, &pwm_g_chan); // RGB GREEN NO PIN 11
+    init_pwm(PWM_2_GP, 256, &pwm_b_slice, &pwm_b_chan); // RGB BLUE NO PIN 12
+
+    rgb_t rgb;
+    while (true) {
+
+        if (xQueueReceive(xQueueRGB, &rgb, pdMS_TO_TICKS(100))) {
+            printf("r: %d, g: %d, b: %d\n", rgb.r, rgb.g, rgb.b);
+            pwm_set_chan_level(pwm_r_slice, pwm_r_chan, rgb.r);
+            pwm_set_chan_level(pwm_g_slice, pwm_g_chan, rgb.g);
+            pwm_set_chan_level(pwm_b_slice, pwm_b_chan, rgb.b);
+        }
+    }
 }
 
 void hc05_task(void *p) {
@@ -51,11 +98,33 @@ void hc05_task(void *p) {
     while (true) {
         vTaskDelay(pdMS_TO_TICKS(100));
     }
+    int status = 0 // COLOCAR O STATE DO BLUETOOTH
+    uint8_t r, g, b;
+    wheel(status, &r, &g, &b);
+    rgb_t rgb = {r, g, b};
+    xQueueSend(xQueueRGB, &rgb, 0);
+}
+
+void wheel(int WheelPos, uint8_t *r, uint8_t *g, uint8_t *b) {
+    WheelPos = 255 - WheelPos;
+
+    if (WheelPos == 0) {
+        *r = 255;
+        *g = 0;
+        *b = 0;
+    } else if (WheelPos ==1) {
+        *r = 0;
+        *g = 0;
+        *b = 255;
+    } else {
+        *r = 0;
+        *g = 255;
+        *b = 0;
+    }
 }
 
 void write_package() {
     
-
     uint8_t data_bt = 0;
     for (int i = 0; i < 5; i++) {
         if (button_states[i] == 0) { // Se botão pressionado
@@ -208,6 +277,8 @@ int main() {
 
     xQueueBTN = xQueueCreate(10, sizeof(ButtonPress));
     xQueueAdc = xQueueCreate(2, sizeof(adc_t));
+    xQueueRGB = xQueueCreate(32, sizeof(rgb_t));
+
 
 
     // Configuração de interrupção para os botões
@@ -222,6 +293,8 @@ int main() {
     xTaskCreate(button_task, "Button_Task", 256, NULL, 1, NULL);
     xTaskCreate(x_task, "X_task", 256, NULL, 1, NULL);
     xTaskCreate(y_task, "Y_task", 256, NULL, 1, NULL);
+    xTaskCreate(rgb_task, "RGB_task", 256, NULL, 1, NULL);
+
 
     vTaskStartScheduler();
 
