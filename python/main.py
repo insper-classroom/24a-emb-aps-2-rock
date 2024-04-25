@@ -106,6 +106,9 @@ try:
         data = ser.read(1)
         data_button = int.from_bytes(data, byteorder=sys.byteorder)
         print("Button: ", data_button)
+        data = ser.read(1)
+        data_select = int.from_bytes(data, byteorder=sys.byteorder)
+        print("Select: ", data_select)
         move_mouse(data_x, data_y)
 
         if data_button is not None:
