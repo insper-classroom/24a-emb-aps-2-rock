@@ -13,11 +13,11 @@
 #include "hardware/pwm.h"
 
 
-const int BTN_PIN_R = 22;
-const int BTN_G = 20;
-const int BTN_B = 16;
-const int BTN_Y = 19;
-const int BTN_O = 15;
+const int BTN_PIN_R = 16 ;
+const int BTN_G = 22 ;
+const int BTN_B = 19 ;
+const int BTN_Y = 15;
+const int BTN_O = 20 ;
 const int BTN_SELECT = 14;
 
 const int UART_TX_PIN = 0;

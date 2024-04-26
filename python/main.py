@@ -20,8 +20,7 @@ device = uinput.Device([
 ])
 
 
-
-def move_mouse(x, y):
+def move_mouse(x, y, select):
     if (x > 40) and (x <60):
             x = 0
     else:
@@ -39,12 +38,16 @@ def move_mouse(x, y):
             y = y - 50
     device.emit(uinput.REL_Y, y)
 
+    if select == 0:
+        device.emit(uinput.BTN_LEFT, 1)
+        device.emit(uinput.BTN_LEFT, 0)
+
 botao_letra = {
-    2: 'a',   # Verde
-    4: 's',  # Vermelho
+    2: 'k',   # Verde
+    4: 'l',  # Vermelho
     8: 'j',   # Amarelo
-    1: 'k',   # Azul
-    16: 'l'    # Laranja
+    1: 'a',   # Azul
+    16: 's'    # Laranja
 }
 
 
@@ -64,6 +67,9 @@ def press_key(binary_number):
         if bit == '1':
             if index == 0:
                 keyboard.press('s')
+                device.emit(uinput.BTN_LEFT, 1)
+                device.emit(uinput.BTN_LEFT, 0)
+
             elif index == 1:
                 keyboard.press('a')
             elif index == 2:
@@ -109,7 +115,7 @@ try:
         data = ser.read(1)
         data_select = int.from_bytes(data, byteorder=sys.byteorder)
         print("Select: ", data_select)
-        move_mouse(data_x, data_y)
+        move_mouse(data_x, data_y, data_select)
 
         if data_button is not None:
             # transofrmando data_button em um binario que necessarioamente tem que ter 5 bits
